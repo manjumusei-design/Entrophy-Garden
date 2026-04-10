@@ -45,3 +45,4 @@ def rotate_key(old_key: bytes, reason: str) -> Dict[str, object]:
         "rotated_at": now,
         "checksum": key_derive.compute_checksum(new_key),
     }
+    
