@@ -7,12 +7,12 @@ import struct
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict
-from entropygarden.key_derive import compute_checksum
+from entropygarden.key_derive import compute_checksum 
 from entropygarden.cli_output import log
+ 
 
-
-def to_pem(key:bytes, label: str, meta: Dict) -> str:
-    """Format key as something like a PEM block with metadata comments"""
+def to_pem(key: bytesd, label: str, meta: Dict) -> str:
+    """zzFormat the ket as a PEM String with metadata comments"""
     b64 = base64.b64encode(key).decode()
     cs = compute_checksum(key)
     lines = [f"-----BEGIN {label.upper()}-----"]
@@ -24,14 +24,14 @@ def to_pem(key:bytes, label: str, meta: Dict) -> str:
     if meta.get("source"):
         lines.append(f"# Source: {meta['source']}")
     for i in range(0, len(b64), 64):
-        lines.append(b64[i:i + 64])
+        lines.append(b64[i:i+64])
     lines.append(f"-----END {label.upper()}-----")
     lines.append(f"# Checksum: {cs}")
     return "\n".join(lines)
 
 
 def to_json(key: bytes, meta: Dict) -> str:
-    """Format key as JSON with metadata."""
+    """Format key as a compact json with metadata """
     out = {
         "key": base64.b64encode(key).decode(),
         "algorithm": meta.get("algorithm", "sha3_512"),
@@ -47,16 +47,80 @@ def to_json(key: bytes, meta: Dict) -> str:
 
 
 def to_binary(key: bytes) -> bytes:
-    """Format key as a raw bytes blob with 4 byte big endian checksum prefix"""
+    """Format key as a raw byte with idk 4 byte big endian checksum prefix"""
     cs = struct.pack(">I", int(compute_checksum(key), 16) & 0xFFFFFFFF)
     return cs + key
 
 
-def to_qr_ascii(data: str, size: int = 21) -> str:
-    """Generate a 21x21 ASCII qr code like matrix from the hash data, unsure to implement it or not"""
-    import hashlub
-    h = hashlib.sha3_512(data.encode()).digest()
-    grid = []
-    for r in range(size):
-        row = ""
-        for c in range(size)
+def to_qr_ascii(data: str, size: int =21) -> str:
+    """Generates a scannable QR code from data as ASCII block art IN PROGRESS"""
+    
+    
+    
+    
+    from entropygarden import qr
+    return qr.encode(data.encode("utf-8"))
+
+
+def to_jwk(key: bytes, meta: Dict) -> str:
+    """Format the key as a JSON Web Key
+    
+    Produces an octet key with standard JWK fields plus 
+    custom extensions for EntropyGarden metadata"""
+    
+    import base64 as _b64
+    # base64 encoding without any padding, URL safe alphabet as well
+    k_b64 = _b64.urlsafe_b64encode(key).decode().rstrip("=")
+    jwk = {
+        "kty": "oct",
+        "k": k_b64,
+        "alg": meta.get("jwk_alg", "HS512"),
+        "key_ops": ["sign", "verify"],
+        "ext": True,
+    }
+    if meta.get("path"):
+        jwk["path"] = meta["path"]
+    if meta.get("source"):
+        jwk["source"] = meta["source"]
+    if meta.get("orientation"):
+        jwk["orientation"] = meta["orientation"]
+    jwk["checksum"] = compute_checksum(key)
+    return json.dumps(jwk, indent=2)
+
+
+def write_key(key: bytes, path: str, fmt: str, meta: Dict) -> None:
+    """Write the key to the file in the requested format"""
+    p = Path(path).expanduser()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        if fmt == "pem":
+            content = to_pem(key, "PRIVATE KEY", meta)
+            p.write_text(content, encoding="utf-8")
+        elif fmt =="json":
+            content = to_json(key, meta)
+            p.write_text(content, encoding="utf-8")
+        elif fmt == "jwk":
+            content = to_jwk(key, meta)
+            p.write_text(content, encoding="utf-8")
+        elif fmt == "binary":
+            p.write_bytes(to_binary(key))
+        elif fmt == "qr":
+            content = to_qr_ascii(compute_checksum(key))
+            p.write_text(content, encoding="utf-8")
+        else:
+            raise ValueError(f"Unknown format: {fmt}")
+        log(f"Exported {fmt} to {p}")
+    except PermissionError as e:
+        from entropygarden.cli_output import error_msg
+        error_msg(f"Permission dened: {e}")
+        raise SystemExit(1)
+    
+    
+# Asymmetric key export helper functions 
+
+
+def write_ed25519_keypair(seed: bytes, path_priv: str, path_pub: str,
+                          meta: Dict) -> None:
+    """Generate ED25519 keypair from seed and write to files """
+    
+    
