@@ -22,12 +22,12 @@ class Ed25519SigningKey:
     def __init__(self, seed: bytes):
         if len(seed) !=32:
             raise ValueError("Seed must be 32 bytes")
-        self.seed = seed
+        self._seed = seed
         
         if _HAS_CRYPTOGRAPHY:
             self._crypto_key = Ed25519PrivateKey.from_private_bytes(seed)
             self._public_key_bytes = self._crypto_key.public_key().public_bytes(
-                serialzation.Encoding.Raw, serialization.PublicFormat.Raw
+                serialization.Encoding.Raw, serialization.PublicFormat.Raw
             )
         else:
             self._public_key_bytes = _pure_python_public_key(seed)
@@ -63,9 +63,9 @@ class Ed25519SigningKey:
 class Ed25519VerifyingKey:
     """Ed25519 verifying key from a 32-byte encoded public key."""
     
-    def __intit__(self, public_key: bytes):
+    def __init__(self, public_key: bytes):
         if len(public_key) != 32: 
-            raise ValueError("Public key must be 32")
+            raise ValueError("Public key must be 32 bytes")
         self._public_key = public_key
         
         if _HAS_CRYPTOGRAPHY:

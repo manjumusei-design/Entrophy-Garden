@@ -8,10 +8,9 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from EntrophyGarden.entropygarden import config, image_parser, key_derive, key_export, key_rotation, render
-from EntrophyGarden.entropygarden import verify
-from EntrophyGarden.entropygarden.image_parser import ORIENTATIONS
-from EntrophyGarden.entropygarden.cli_output import (print_banner, print_complete,
+from entropygarden import key_derive, config, render, key_export, image_parser, verify, key_rotation
+from entropygarden.image_parser import ORIENTATIONS
+from entropygarden.cli_output import (print_banner, print_complete,
                                       log, error_msg, set_quiet, human_size)
 
 
@@ -51,7 +50,6 @@ def _show_image_art(pixel_data: bytes, img_w: int, img_h: int,
     for line in lines:
         print(f"  {line}")
 
-        
         
 def _process_one_image(cfg: dict) -> bool:
     """Process a single image: prompt for path, show art, derive keys, offer save.
@@ -99,7 +97,7 @@ def _process_one_image(cfg: dict) -> bool:
     print(f"  Entropy score: {quality['score']}%  |  Bits/byte: {quality['bits_per_byte']}")
 
     algorithm = cfg.get("algorithm", "sha3_512")
-   
+
     # Terminal dimensions for art
     term = render.detect_terminal()
     art_w = min(term["width"] - 2, 60)
@@ -120,7 +118,7 @@ def _process_one_image(cfg: dict) -> bool:
         else:
             display_pixels, display_w, display_h = image_parser.rotate_pixels(
                 pixel_data, orientation, img_w, img_h)
-            
+
         # Show art
         print()
         label = f"Orientation: {ORIENTATIONS[orientation]} ({display_w}x{display_h})"
@@ -141,7 +139,7 @@ def _process_one_image(cfg: dict) -> bool:
             print(f"\n  --- Reroll: {ORIENTATIONS[orientation]} ---")
             continue
         break
-    
+
     # Save keys
     print()
     if _ask("Save key pair to current folder?", default_val="y"):
@@ -153,7 +151,7 @@ def _process_one_image(cfg: dict) -> bool:
             "orientation_index": orientation,
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
-        
+
         priv_path = "priv.key"
         pub_path = "pub.json"
 
@@ -181,7 +179,7 @@ def _interactive_grow(cfg: dict) -> None:
     """Interactive flow where we want to process images in a loop until the user stops or quits the program"""
     set_quiet(False)
     images_processed = 0
-    keys_generated = 0 
+    keys_generated = 0
     
     while True:
         more = _process_one_image(cfg)
@@ -367,6 +365,7 @@ def _cmd_grow(args: argparse.Namespace) -> None:
             "orientation_index": args.orientation,
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
+        
         key_type = args.key_type
         if key_type == "symmetric":
             if args.output_private:
@@ -428,7 +427,7 @@ def _cmd_export(args: argparse.Namespace) -> None:
     
     
 def _cmd_garden(args: argparse.Namespace) -> None:
-    """Visualize image as ASCII art"""
+    """Garden: visualize image as ASCII art."""
     cfg = config.load()
     set_quiet(args.quiet or cfg.get("quiet", False))
     pixel_data, img_w, img_h = image_parser.get_image(args.input)

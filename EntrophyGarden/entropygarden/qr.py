@@ -42,7 +42,7 @@ def _gf_poly_mul(p, q):
 
 # Reed the solomon error correction
 
-def _rs_gemerator_poly(nsym):
+def _rs_generator_poly(nsym):
     """Generate the RS geneator polynomial for nsym error coderwords"""
     g = [1]
     for i in range(nsym):
@@ -82,7 +82,7 @@ _QR_VERSIONS = {
 # Alignment pattern positions per version
 _QR_ALIGNMENT = {
     1: [],
-    2: [6. 18],
+    2: [6, 18],
     3: [6, 22],
     4: [6, 26],
     5: [6, 30],

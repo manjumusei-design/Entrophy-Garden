@@ -222,7 +222,7 @@ def get_image_info(path: str) -> Dict[str, object]:
 
 
 def rotate_pixels(pixel_data: bytes, orientation: int,
-                  width: int, height int) -> Tuple[bytes, int, int]:
+                  width: int, height: int) -> Tuple[bytes, int, int]:
     """Rotate/flip the rgb pixel data by orientation index of 0 to 7"""
     
     
@@ -318,7 +318,7 @@ def rotate_pixels(pixel_data: bytes, orientation: int,
     
 def extract_entropy(data: bytes, algorithm: str = "sha3_512") -> bytes:
     """Return crypto hash digest of data"""
-    if algorithm == "sha_512":
+    if algorithm == "sha3_512":
         return hashlib.sha3_512(data).digest()
     elif algorithm == "blake2b":
         return hashlib.blake2b(data).digest()
