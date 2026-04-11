@@ -8,9 +8,10 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from entropygarden import key_derive, config, render, key_export, image_parser, verify, key_rotation
-from entropygarden.image_parser import ORIENTATIONS
-from entropygarden.cli_output import (print_banner, print_complete,
+from EntrophyGarden.entropygarden import config, image_parser, key_derive, key_export, key_rotation, render
+from EntrophyGarden.entropygarden import verify
+from EntrophyGarden.entropygarden.image_parser import ORIENTATIONS
+from EntrophyGarden.entropygarden.cli_output import (print_banner, print_complete,
                                       log, error_msg, set_quiet, human_size)
 
 
@@ -374,7 +375,7 @@ def _cmd_grow(args: argparse.Namespace) -> None:
                 pub = key_derive.hkdf_expand(child_key, b"public", 32)
                 key_export.write_key(pub, args.output_public, "json", meta)
         elif key_type == "ed25519":
-            from entropygarden import ed25519
+            from EntrophyGarden.entropygarden import ed25519
             sk = ed25519.generate_signing_key(child_key[:32])
             priv_out = args.output_private or "priv_ed25519.key"
             pub_out = args.output_public or "pub_ed25519.pub"

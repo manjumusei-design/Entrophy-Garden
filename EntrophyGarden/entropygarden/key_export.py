@@ -7,8 +7,9 @@ import struct
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict
-from entropygarden.key_derive import compute_checksum 
-from entropygarden.cli_output import log
+from EntrophyGarden.entropygarden import ssh_format
+from EntrophyGarden.entropygarden.key_derive import compute_checksum 
+from EntrophyGarden.entropygarden.cli_output import log
  
 
 def to_pem(key: bytesd, label: str, meta: Dict) -> str:
@@ -58,7 +59,7 @@ def to_qr_ascii(data: str, size: int =21) -> str:
     
     
     
-    from entropygarden import qr
+    from EntrophyGarden.entropygarden import qr
     return qr.encode(data.encode("utf-8"))
 
 
@@ -111,7 +112,7 @@ def write_key(key: bytes, path: str, fmt: str, meta: Dict) -> None:
             raise ValueError(f"Unknown format: {fmt}")
         log(f"Exported {fmt} to {p}")
     except PermissionError as e:
-        from entropygarden.cli_output import error_msg
+        from EntrophyGarden.entropygarden.cli_output import error_msg
         error_msg(f"Permission dened: {e}")
         raise SystemExit(1)
     
@@ -126,7 +127,7 @@ def write_ed25519_keypair(seed: bytes, path_priv: str, path_pub: str,
     """Private key = PKCS#8 PEM
     Public key = SSH format + PEM"""
     
-    from entropygarden import ed25519, ssh_format
+    from EntrophyGarden.entropygarden import ed25519
     sk = ed25519.Ed25519SigningKey(seed)
     pk_bytes = sk.public_key
     
@@ -156,7 +157,7 @@ def write_x25519_keypair(seed: bytes, path_priv: str, path_pub: str,
     Private key is hex encoded in a json wrapper
     Public key is hex encoded in a json wrapper as well"""
     
-    from entropygarden import x25519
+    from EntrophyGarden.entropygarden import x25519
     pub_bytes = x25519.generate_public_key(seed)
     
     priv_out = {
