@@ -123,4 +123,57 @@ def write_ed25519_keypair(seed: bytes, path_priv: str, path_pub: str,
                           meta: Dict) -> None:
     """Generate ED25519 keypair from seed and write to files """
     
+    """Private key = PKCS#8 PEM
+    Public key = SSH format + PEM"""
     
+    from entropygarden import ed25519, ssh_format
+    sk = ed25519.Ed25519SigningKey(seed)
+    pk_bytes = sk.public_key
+    
+    # Private key: PKCS#8 PEM
+    priv_pem = ssh_format.to_pkcs8_pem(seed, pk_bytes)
+    Path(path_priv).write_text(priv_pem + "\n", encoding="utf-8")
+    
+    # Public key - SSH format 
+    ssh_pub = ssh_format.to_ssh_public_key(pk_bytes, meta.get("source", ""))
+    Path(path_pub).write_text(ssh_pub + "\n", encoding="utf-8")
+    
+    # Also write the PEM public key alongside
+    pub_pem = ssh_format.to_subject_public_key_info_pem(pk_bytes)
+    pub_pem_path = path_pub.replace(".pub", "_pem.pub ")
+    if pub_pem_path == path_pub:
+        pub_pem_path = path_pub + ".pem"
+    Path(pub_pem_path).write_text(pub_pem + "\n", encoding="utf-8")
+    
+    log(f"Exported Ed25519 private key to {path_priv}")
+    log(f"Exported Ed25519 public key to {path_pub}")
+    
+    
+def write_x25519_keypair(seed: bytes, path_priv: str, path_pub: str,
+                         meta: Dict) -> None:
+    """This function is to generate the x25519 keypair from the seed and write to files 
+    
+    Private key is hex encoded in a json wrapper
+    Public key is hex encoded in a json wrapper as well"""
+    
+    from entropygarden import x25519
+    pub_bytes = x25519.generate_public_key(seed)
+    
+    priv_out = {
+        "kty" : "0KP",
+        "crv" : "X25519",
+        "d" : base64.urlsafe_b64encode(seed).decode().rstrip("="),
+        "X" : base64.urlsafe_b64encode(pub_bytes).decode().rstrip("="),
+    }
+    priv_out.update(meta)
+    
+    pub_out = {
+        "kty" : "0KP",
+        "crv" : "X25519",
+        "x": base64.urlsafe_b64encode(pub_bytes).decode().rstrip("="),
+    }
+    
+    Path(path_priv).write_text(json.dumps(priv_out, indent=2), encoding="utf-8")
+    Path(path_pub).write_text(json.dumps(pub_out, indent=2), encoding="utf-8")
+    log(f"Exported X25519 private key to {path_priv}")
+    log(f"Exported X25519 public key to {path_pub}")
