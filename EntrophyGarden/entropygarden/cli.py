@@ -50,6 +50,105 @@ def _show_image_art(pixel_data: bytes, img_w: int, img_h: int,
     for line in lines:
         print(f"  {line}")
 
+
+def _show_export_menu(key_path: str, checksum: str) -> None:
+    """Show interactive menu for exporting keys in different formats."""
+    print("\n" + "="*60)
+    print("  EXPORT OPTIONS")
+    print("="*60)
+    print(f"\n  Key: {checksum}\n")
+    
+    formats = [
+        ("pem", "PEM Format (OpenSSL/SSH compatible)"),
+        ("ssh", "SSH Format (OpenSSH public key)"),
+        ("json", "JSON Format (human-readable)"),
+        ("jwk", "JWK Format (JSON Web Key standard)"),
+        ("qr-ascii", "QR Code - ASCII (text-based, archival)"),
+        ("qr-png", "[RECOMMENDED] QR Code - PNG (mobile-scannable!)"),
+    ]
+    
+    while True:
+        print("  Select export format:")
+        for i, (fmt, desc) in enumerate(formats, 1):
+            marker = ">>" if fmt == "qr-png" else "  "
+            print(f"    {marker} [{i}] {desc}")
+        print(f"    [0] Done (no more exports)")
+        print()
+        
+        try:
+            choice = input("  Enter choice (0-6): ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return
+        
+        if choice == "0":
+            break
+        
+        try:
+            idx = int(choice) - 1
+            if idx < 0 or idx >= len(formats):
+                error_msg("Invalid choice. Please select 0-6.")
+                continue
+        except ValueError:
+            error_msg("Please enter a number.")
+            continue
+        
+        fmt, desc = formats[idx]
+        _export_key_interactive(key_path, fmt, checksum)
+        print()
+
+
+def _export_key_interactive(key_path: str, fmt: str, checksum: str) -> None:
+    """Export key in specified format with automatic filename."""
+    import os
+    from pathlib import Path
+    
+    # Suggest output filename
+    format_exts = {
+        "pem": "pem",
+        "ssh": "pub",
+        "json": "json",
+        "jwk": "jwk",
+        "qr": "qr.txt",
+    }
+    
+    ext = format_exts.get(fmt, fmt)
+    output_path = f"key_{checksum[:8]}.{ext}"
+    
+    # Handle existing files
+    counter = 1
+    base_path = output_path
+    while os.path.exists(output_path):
+        name, ext_part = base_path.rsplit(".", 1)
+        output_path = f"{name}_{counter}.{ext_part}"
+        counter += 1
+    
+    try:
+        print(f"\n  Exporting as {fmt.upper()}...")
+        meta = {
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "format": fmt,
+        }
+        
+        key_export.write_key(
+            Path(key_path).read_bytes(),
+            output_path,
+            fmt,
+            meta
+        )
+        
+        print(f"  [OK] Exported to: {os.path.abspath(output_path)}")
+        
+        # Special message for QR
+        if fmt == "qr":
+            size = os.path.getsize(output_path)
+            print(f"  [QR] Code is scannable! Size: {human_size(size)}")
+            print(f"  [TIP] You can print this or display on screen to share key")
+        
+        log(f"Successfully exported {fmt} format")
+    except Exception as e:
+        error_msg(f"Export failed: {e}")
+
         
 def _process_one_image(cfg: dict) -> bool:
     """Process a single image: prompt for path, show art, derive keys, offer save.
@@ -168,6 +267,11 @@ def _process_one_image(cfg: dict) -> bool:
         print(f"\n  Private key saved: {os.path.abspath(priv_path)}")
         print(f"  Public key saved:  {os.path.abspath(pub_path)}")
         print_complete(cs)
+        
+        # Show export menu for additional formats
+        print()
+        if _ask("Export key in additional formats?", default_val="y"):
+            _show_export_menu(priv_path, cs)
     else:
         print("\n  Keys not saved.")
 
