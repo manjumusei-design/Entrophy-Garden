@@ -1,14 +1,15 @@
 # Qr.PY
-"""This is my own implementation of QR code generation which produces QR codes as ASCII text using block characters"""
+"""This is my own implementation of QR code generation which produces QR codes as ASCII text using block characters """
 
 
 
 
 
-# GALOIS Field 256 artihmetic  
+# GALOIS Field 256 artimetic
 
 _GF_EXP = [0] * 512
 _GF_LOG = [0] * 256
+
 
 def _gf_init():
     """Pre compute the GF 256 log/exp tables with a primitive polynomial 0x11d"""
@@ -21,6 +22,8 @@ def _gf_init():
             x ^= 0x11d
     for i in range(255, 512):
         _GF_EXP[i] = _GF_EXP[i - 255]
+        
+        
 _gf_init()
 
 
@@ -32,8 +35,8 @@ def _gf_mul(a, b):
 
 
 def _gf_poly_mul(p, q):
-    """Multiply two polynomials over GF256"""
-    r = [0] * (len(p) + len(q) - 1)
+    """Multiply 2 polynomials over GF256"""
+    r = [0] * (len(p) + len(q) -1)
     for j, q_coeff in enumerate(q):
         for i, p_coeff in enumerate(p):
             r[i + j] ^= _gf_mul(p_coeff, q_coeff)
@@ -43,14 +46,14 @@ def _gf_poly_mul(p, q):
 # Reed the solomon error correction
 
 def _rs_generator_poly(nsym):
-    """Generate the RS geneator polynomial for nsym error coderwords"""
-    g = [1]
+    """Generate the RS generator polynomial for nsym error coderwords"""
+    g = [1] 
     for i in range(nsym):
         g = _gf_poly_mul(g, [1, _GF_EXP[i]])
     return g
 
 
-def _rs_encode(data,nsym):
+def _rs_encode(data, nsym):
     """Reed solomon encode data bytes with nsym error correction codeword"""
     gen = _rs_generator_poly(nsym)
     remainder = list(data) + [0] * nsym
@@ -62,24 +65,33 @@ def _rs_encode(data,nsym):
     return remainder[len(data):]
 
 
-# QR capacity table (byte mode)
+# QR Capacity table (byte mode)
 
-# We only support version 1 to 10 instead of 1 to 40 
+# Extended the support to 1 - 20 for larger data capacity since 10 wasnt cutting it
 _QR_VERSIONS = {
-    1:  (16,  10, 1),
-    2:  (32,  16, 1),
-    3:  (53,  26, 1),
-    4:  (78,  18, 2),
-    5:  (106, 24, 2),
-    6:  (134, 16, 4),
-    7:  (154, 18, 4),
-    8:  (192, 22, 2),
-    9:  (230, 22, 3),
+    1: (16, 10, 1),
+    2: (32, 16, 1),
+    3: (53, 26, 1),
+    4: (78, 18, 2),
+    5: (106, 24, 2),
+    6: (134, 16, 4),
+    7: (154, 18, 4),
+    8: (192, 22, 2),
+    9: (230, 22, 3),
     10: (271, 26, 4),
+    11: (321, 30, 3),
+    12: (367, 22, 5),
+    13: (425, 24, 5),
+    14: (458, 28, 8),
+    15: (520, 30, 8),
+    16: (586, 30, 11),
+    17: (644, 30, 13),
+    18: (718, 26, 17),
+    19: (792, 28, 34),
+    20: (858, 28, 34),
 }
 
-
-# Alignment pattern positions per version
+# Aligment pattern positions per version
 _QR_ALIGNMENT = {
     1: [],
     2: [6, 18],
@@ -91,9 +103,19 @@ _QR_ALIGNMENT = {
     8: [6, 24, 42],
     9: [6, 26, 46],
     10: [6, 28, 50],
+    11: [6, 30, 54],
+    12: [6, 32, 58],
+    13: [6, 34, 62],
+    14: [6, 26, 46, 66],
+    15: [6, 26, 48, 70],
+    16: [6, 26, 50, 74],
+    17: [6, 30, 54, 78],
+    18: [6, 30, 56, 82],
+    19: [6, 30, 58, 86],
+    20: [6, 34, 62, 90],
 }
 
-# Format info bits for EC level M with the mask pattern gong 0 to 7
+# format info bits for EC level M with the mask pattern going from 0 to 7
 _QR_FORMAT_BITS = [
     0x5412, 0x5125, 0x5E7C, 0x5B4B, 0x45F9, 0x40CE, 0x4F97, 0x4AA0,
 ]
@@ -103,26 +125,26 @@ _QR_FORMAT_BITS = [
 
 def _choose_version(data_len):
     """Pick smallest qr version that fits the data length in byte mode"""
-    for v in range(1, 11):
+    for v in range(1, 21):
         data_codewords, _, _ = _QR_VERSIONS[v]
-        # Byte mode : 4 bit mode + char count + data + terminator
-        char_count_bits = 8 if v<= 9 else 16
+        # Byte mode : 4 bit mode + char count + data + terminator 
+        char_count_bits = 8 if v <= 9 else 16
         bits_needed = 4 + char_count_bits + data_len * 8 + 4
         bytes_needed = (bits_needed + 7) // 8
         if bytes_needed <= data_codewords:
             return v
-    raise ValueError(f"Data too long for QR versions 1 to 10: {data_len} bytes")
+    raise ValueError(f"Data too long for QR versions 1 to 20: {data_len} bytes")
 
 
 def _encode_byte_mode(data, version):
-    """Encode byte data into a bit stream for QR."""
+    """Encode byte data into a bit stream for QR"""
     data_codewords, _, _ = _QR_VERSIONS[version]
-    bits = []
-    # Mode indicator: 0100 for byte mode
+    bits = [] 
+    #Mode indicator : 0100 for byte mode
     bits.extend([0, 1, 0, 0])
     # Character count
     char_count_bits = 8 if version <= 9 else 16
-    for i in range(char_count_bits - 1, -1, -1):
+    for i in range(char_count_bits -1, -1, -1):
         bits.append((len(data) >> i) & 1)
     # Data
     for byte in data:
@@ -145,7 +167,7 @@ def _encode_byte_mode(data, version):
     # Convert to bytes
     codewords = bytearray()
     for i in range(0, len(bits), 8):
-        byte = 0
+        byte = 0 
         for j in range(8):
             byte = (byte << 1) | bits[i + j]
         codewords.append(byte)
@@ -165,10 +187,10 @@ def _interleave_with_ec(data_codewords, version):
         size = data_per_block + (1 if i < remainder else 0)
         blocks.append(data_codewords[offset:offset + size])
         offset += size
-        
+
         # Encode each block
     ec_blocks = [_rs_encode(block, ec_per_block) for block in blocks]
-        
+
     # Interleave data codewords
     interleaved = bytearray()
     max_block = max(len(b) for b in blocks)
@@ -176,7 +198,7 @@ def _interleave_with_ec(data_codewords, version):
         for block in blocks:
             if i < len(block):
                 interleaved.append(block[i])
-    
+
     # Interleave EC codewords
     for i in range(ec_per_block):
         for block in ec_blocks:
@@ -186,7 +208,7 @@ def _interleave_with_ec(data_codewords, version):
     return bytes(interleaved)
 
 
-# Matrix construction + rendering
+# Matrix construction + rendering 
 
 def _make_matrix(version):
     """Create empty qr matrix and reserve function patterns"""
@@ -199,16 +221,16 @@ def _make_matrix(version):
             matrix[r][c] = val
             reserved[r][c] = True
             
-    # Finder patterns (7x7) + separator (8x8)
-    for r0, c0 in [(0, 0), (0, size - 7), (size - 7, 0)]:
+    # Finder patterns 7x7 and seperator 8x8
+    for r0, c0 in [(0, 0), (0, size -7), (size -7, 0)]:
         for r in range(8):
             for c in range(8):
                 if 0 <= r0 + r < size and 0 <= c0 + c < size:
-                    set_module(r0 + r, c0 + c, 0)
+                    set_module(r0 + r, c0 +c, 0)
                 if (r in (0, 6) or c in (0, 6) or
-                    (2 <= r <= 4 and 2 <= c <= 4)):
+                        (2 <= r <= 4 and 2 <= c <= 4)):
                     set_module(r0 + r, c0 + c, 1)
-
+            
     # Alignment patterns
     positions = _QR_ALIGNMENT.get(version, [])
     for r_pos in positions:
@@ -218,14 +240,14 @@ def _make_matrix(version):
                 continue
             if (r_pos <= 8 and c_pos >= size - 8):
                 continue
-            if (r_pos >= size - 8 and c_pos <= 8):
+            if (r_pos >= size -8 and c_pos <= 8):
                 continue
             for r in range(-2, 3):
                 for c in range(-2, 3):
                     val = 1 if (abs(r) == 2 or abs(c) == 2 or
-                                (r == 0 and c == 0)) else 0
+                                (r == 0 and  c == 0)) else 0
                     set_module(r_pos + r, c_pos + c, val)
-                
+        
     # Timing patterns
     for i in range(8, size - 8):
         val = 1 if (i % 2 == 0) else 0
@@ -239,71 +261,71 @@ def _make_matrix(version):
     for i in range(8):
         set_module(8, i, 0)
         set_module(i, 8, 0)
-        set_module(8, size - 1 - i, 0)
-        set_module(size - 1 - i, 8, 0)
-    set_module(8, 8, 0)  # Format info bit
+        set_module(8, size -1 -i, 0)
+        set_module(size -1 -i, 8, 0)
+    set_module(8, 8, 0)
     
-    # Reserve version information areas for 7 and above
+    # Reserve version information areas for version 7 and above
     if version >= 7:
         for i in range(6):
             for j in range(3):
                 set_module(i, size - 11 + j, 0)
                 set_module(size - 11 + j, i, 0)
-    
+                
     return matrix, reserved
 
 
 def _is_data_cell(r, c, size, version):
-    """Check if a cell is a data cell which is not reserved for the function patterns"""
-    # Finder + seperator cores
+    """Check if a cell is a data cell which is not reserved for the fuction pattern"""
+    # Finder + seperator core
     if r < 9 and c < 9:
         return False
-    if r < 9 and c >= size -8:
+    if r < 9 and c >= size - 8:
         return False
-    if r == 6 or c == 6:
+    if r == 6 or c ==6:
         return False
     # Timing
     if r == 6 or c == 6:
         return False
-    # Format info
+    # Format info 
     if r == 8 or c == 8:
         return False
     # Dark module
     if r == 4 * version + 9 and c == 8:
         return False
     # Alignment patterns
-    positions = _QR_ALIGNMENT.get(version,[])
+    positions = _QR_ALIGNMENT.get(version, [])
     for rp in positions:
         for cp in positions:
             if abs(r - rp) <= 2 and abs(c - cp) <= 2:
                 return False
     # Return info
     if version >= 7:
-        if r < 6 and c >= size -11:
+        if r < 6 and c >= size - 11:
             return False
         if r >= size - 11 and c < 6:
             return False
     return True
 
-
-def _place_data(matrix , reserved, data, version):
+            
+def _place_data(matrix, reserved, data, version):
     """Place encoded data bits into the QR matrix along the snake path"""
     size = len(matrix)
     bits = []
     for byte in data:
         for i in range(7, -1, -1):
             bits.append((byte >> i) & 1)
-
+            
     bit_idx = 0
     col = size - 1
     upward = True
-
+    
     while col >= 0:
         if col == 6:
             col -= 1
             continue
         for row_idx in range(size):
-            row = size - 1 - row_idx if upward else row_idx
+            row = size - 1- row_idx if upward else row_idx
             for dc in (0, -1):
                 c = col + dc
                 if c < 0 or c >= size:
@@ -318,7 +340,7 @@ def _place_data(matrix , reserved, data, version):
         upward = not upward
         col -= 2
         
-    
+        
 # Masking
 
 def _mask_function(mask_pattern, r, c):
@@ -351,16 +373,16 @@ def _apply_mask_and_format(matrix, version, mask_pattern):
     # Place format info bits
     format_bits_list = [(format_bits >> i) & 1 for i in range(14, -1, -1)]
     positions_row = [(8, 0), (8, 1), (8, 2), (8, 3), (8, 4), (8, 5), (8, 7),
-                      (8, 8), (7, 8), (5, 8), (4, 8), (3, 8), (2, 8), (1, 8), (0, 8)]
+                     (8, 8), (7, 8), (5, 8), (4, 8), (3, 8), (2, 8), (1, 8), (0, 8)]
     positions_col = [(size - 1, 8), (size - 2, 8), (size - 3, 8),
-                      (size - 4, 8), (size - 5, 8), (size - 6, 8), (size - 7, 8)]
+                     (size - 4, 8), (size - 5, 8), (size - 6, 8), (size - 7, 8)]
 
     for i, (r, c) in enumerate(positions_row):
         matrix[r][c] = format_bits_list[i]
     for i, (r, c) in enumerate(positions_col):
         matrix[r][c] = format_bits_list[14 - i]
-
         
+
 def _penalty_score(matrix, size):
     """Calculate QR code penalty score"""
     score = 0
@@ -371,11 +393,11 @@ def _penalty_score(matrix, size):
             if matrix[r][c] == matrix[r][c - 1]:
                 run += 1
             else:
-                if run >=5:
+                if run >= 5:
                     score += run - 2
                 run = 1
         if run >= 5:
-            score += run -2
+            score += run - 2
     for c in range(size):
         run = 1
         for r in range(1, size):
@@ -388,21 +410,21 @@ def _penalty_score(matrix, size):
         if run >= 5:
             score += run - 2
     # Rule 2 : 2x2 blocks of the same colour
-    for r in range(size -1):
+    for r in range(size - 1):
         for c in range(size - 1):
-            if matrix [r][c] == matrix[r][c+1] == matrix[r+1][c] == matrix[r+1][c+1]:
+            if matrix[r][c] == matrix[r][c + 1] == matrix[r + 1][c] == matrix[r + 1][c + 1]:
                 score += 3
     return score
 
 
-#Pub API
+# Pub API
 
 def encode(data: bytes) -> str:
-    """Generate a scannable QR code from bytes as ASCII art
+    """Generate a scannable qr code from bytes as ASCII art 
     
-    Should use byte mode encoding and the smallest version possible 
-    then return a string of block cahracters that an be scanned by any qr reader
-    """
+    Should use byte mode encoding and the smallest version possible
+    then return a string of block characters that can be scanned by any qr reader"""
+    
     if len(data) == 0:
         data = b"\x00"
 
@@ -439,7 +461,7 @@ def encode(data: bytes) -> str:
         if score < best_score:
             best_score = score
             best_matrix = test_matrix
-            
+
     # Render as ASCII (each module = 2 chars wide for square-ish appearance)
     size = len(best_matrix)
     lines = []
@@ -449,4 +471,4 @@ def encode(data: bytes) -> str:
             line += "██" if best_matrix[r][c] else "░░"
         lines.append(line)
     return "\n".join(lines)
-            
+

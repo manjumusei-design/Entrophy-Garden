@@ -63,8 +63,8 @@ def _show_export_menu(key_path: str, checksum: str) -> None:
         ("ssh", "SSH Format (OpenSSH public key)"),
         ("json", "JSON Format (human-readable)"),
         ("jwk", "JWK Format (JSON Web Key standard)"),
-        ("qr-ascii", "QR Code - ASCII (text-based, archival)"),
-        ("qr-png", "[RECOMMENDED] QR Code - PNG (mobile-scannable!)"),
+        ("qr-ascii", "QR Code - Native ASCII that cannot be scanned most of the time (text-based, archival)"),
+        ("qr-png", "[RECOMMENDED] QR Code - PNG based off the native ASCII (mobile-scannable!)"),
     ]
     
     while True:
@@ -143,7 +143,7 @@ def _export_key_interactive(key_path: str, fmt: str, checksum: str) -> None:
         if fmt == "qr":
             size = os.path.getsize(output_path)
             print(f"  [QR] Code is scannable! Size: {human_size(size)}")
-            print(f"  [TIP] You can print this or display on screen to share key")
+
         
         log(f"Successfully exported {fmt} format")
     except Exception as e:
@@ -156,8 +156,8 @@ def _process_one_image(cfg: dict) -> bool:
     Returns True if the user wants to process another image.
     """
     print()
-    print("  Drag and drop an image file here, or type the path.")
-    print("  (PPM and PNG files supported)")
+    print("  Copy and paste or type the path here.")
+    print("  (PPM and PNG files supported for now, maybe more in the future?)")
     print()
 
     try:

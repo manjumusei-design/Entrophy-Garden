@@ -12,8 +12,8 @@ from .key_derive import compute_checksum
 from .cli_output import log
  
 
-def to_pem(key: bytesd, label: str, meta: Dict) -> str:
-    """zzFormat the ket as a PEM String with metadata comments"""
+def to_pem(key: bytes, label: str, meta: Dict) -> str:
+    """Format the ket as a PEM String with metadata comments"""
     b64 = base64.b64encode(key).decode()
     cs = compute_checksum(key)
     lines = [f"-----BEGIN {label.upper()}-----"]
@@ -51,6 +51,35 @@ def to_binary(key: bytes) -> bytes:
     """Format key as a raw byte with idk 4 byte big endian checksum prefix"""
     cs = struct.pack(">I", int(compute_checksum(key), 16) & 0xFFFFFFFF)
     return cs + key
+
+
+def to_qr_png(data: str) -> bytes:
+    """Generate a scannable QR code as PNG image bytes"""
+    try:
+        import qrcode
+    except ImportError:
+        raise ImportError(
+            "qrcode library required for PNG generation. Install with: pip install qrcode[pil]"
+        )
+    
+    # Generate QR with automatic version selection (up to version 40)
+    qr_obj = qrcode.QRCode(
+        version=None,  # Auto-select
+        error_correction=qrcode.constants.ERROR_CORRECT_H,  # High error correction
+        box_size=10,
+        border=4,
+    )
+    qr_obj.add_data(data)
+    qr_obj.make(fit=True)
+    
+    # Create PIL image
+    img = qr_obj.make_image(fill_color="black", back_color="white")
+    
+    # Convert to PNG bytes
+    import io
+    png_bytes = io.BytesIO()
+    img.save(png_bytes, format="PNG")
+    return png_bytes.getvalue()
 
 
 def to_qr_ascii(data: str, size: int =21) -> str:
@@ -105,9 +134,22 @@ def write_key(key: bytes, path: str, fmt: str, meta: Dict) -> None:
             p.write_text(content, encoding="utf-8")
         elif fmt == "binary":
             p.write_bytes(to_binary(key))
-        elif fmt == "qr":
-            content = to_qr_ascii(compute_checksum(key))
+        elif fmt == "qr" or fmt == "qr-ascii":
+            # ASCII art QR code (text-based, for archival)
+            key_b64 = base64.b64encode(key).decode()
+            content = to_qr_ascii(key_b64)
+            # Use .qr.txt extension for ASCII QR
+            if not p.name.endswith(".qr.txt"):
+                p = p.with_name(p.stem + ".qr.txt")
             p.write_text(content, encoding="utf-8")
+        elif fmt == "qr-png":
+            # PNG QR code (image, mobile-scannable)
+            key_b64 = base64.b64encode(key).decode()
+            png_bytes = to_qr_png(key_b64)
+            # Use .qr.png extension for PNG QR
+            if not p.name.endswith(".qr.png"):
+                p = p.with_name(p.stem + ".qr.png")
+            p.write_bytes(png_bytes)
         else:
             raise ValueError(f"Unknown format: {fmt}")
         log(f"Exported {fmt} to {p}")
