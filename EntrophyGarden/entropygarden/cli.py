@@ -279,6 +279,571 @@ def _process_one_image(cfg: dict) -> bool:
     return _ask("Process another image?", default_val="n")
 
 
+def _interactive_ed25519_keygen() -> None:
+    """Interactive Ed25519 keypair generation from seed or image."""
+    print("\n" + "="*60)
+    print("  ED25519 KEYPAIR GENERATION")
+    print("="*60)
+    
+    print("\n  Source options:")
+    print("    [1] From image entropy")
+    print("    [2] From existing key file")
+    print("    [0] Cancel")
+    
+    try:
+        choice = input("\n  Select source (0-2): ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return
+    
+    if choice == "0":
+        return
+    
+    from entropygarden import ed25519, ssh_format
+    
+    if choice == "1":
+        # Derive from image
+        print("\n  Copy and paste or type the path to your image (PPM/PNG):")
+        try:
+            image_path = input("  Image path: ").strip().strip('"').strip("'")
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return
+        
+        if not image_path or not os.path.isfile(image_path):
+            error_msg("Image file not found.")
+            return
+        
+        try:
+            pixel_data, img_w, img_h = image_parser.get_image(image_path)
+            child_key = _derive_keys(pixel_data, "sha3_512")
+        except ValueError as e:
+            error_msg(str(e))
+            return
+    
+    elif choice == "2":
+        # From existing key file
+        print("\n  Enter path to key file (PEM, JSON, or JWK):")
+        try:
+            key_path = input("  Key file path: ").strip().strip('"').strip("'")
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return
+        
+        if not key_path or not os.path.isfile(key_path):
+            error_msg("Key file not found.")
+            return
+        
+        try:
+            child_key = _read_key_file(key_path)
+        except ValueError as e:
+            error_msg(str(e))
+            return
+    else:
+        error_msg("Invalid choice.")
+        return
+    
+    # Generate Ed25519 keypair
+    try:
+        sk = ed25519.generate_signing_key(child_key[:32])
+    except Exception as e:
+        error_msg(f"Failed to generate keypair: {e}")
+        return
+    
+    checksum = key_derive.compute_checksum(sk.seed)
+    print(f"\n  [OK] Ed25519 keypair generated")
+    print(f"  Checksum: {checksum}")
+    
+    # Export options
+    if _ask("\n  Save keypair to files?", default_val="y"):
+        priv_path = f"ed25519_priv_{checksum[:8]}.pem"
+        pub_path = f"ed25519_pub_{checksum[:8]}.pub"
+        
+        counter = 1
+        while os.path.exists(priv_path):
+            priv_path = f"ed25519_priv_{checksum[:8]}_{counter}.pem"
+            pub_path = f"ed25519_pub_{checksum[:8]}_{counter}.pub"
+            counter += 1
+        
+        meta = {"created_at": datetime.now(timezone.utc).isoformat()}
+        key_export.write_ed25519_keypair(sk.seed, priv_path, pub_path, meta)
+        print(f"  Private key: {os.path.abspath(priv_path)}")
+        print(f"  Public key:  {os.path.abspath(pub_path)}")
+
+
+def _interactive_x25519_keygen() -> None:
+    """Interactive X25519 keypair generation from seed or image."""
+    print("\n" + "="*60)
+    print("  X25519 KEYPAIR GENERATION")
+    print("="*60)
+    
+    print("\n  Source options:")
+    print("    [1] From image entropy")
+    print("    [2] From existing key file")
+    print("    [0] Cancel")
+    
+    try:
+        choice = input("\n  Select source (0-2): ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return
+    
+    if choice == "0":
+        return
+    
+    from entropygarden import x25519
+    
+    if choice == "1":
+        # Derive from image
+        print("\n  Copy and paste or type the path to your image (PPM/PNG):")
+        try:
+            image_path = input("  Image path: ").strip().strip('"').strip("'")
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return
+        
+        if not image_path or not os.path.isfile(image_path):
+            error_msg("Image file not found.")
+            return
+        
+        try:
+            pixel_data, img_w, img_h = image_parser.get_image(image_path)
+            child_key = _derive_keys(pixel_data, "sha3_512")
+        except ValueError as e:
+            error_msg(str(e))
+            return
+    
+    elif choice == "2":
+        # From existing key file
+        print("\n  Enter path to key file (PEM, JSON, or JWK):")
+        try:
+            key_path = input("  Key file path: ").strip().strip('"').strip("'")
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return
+        
+        if not key_path or not os.path.isfile(key_path):
+            error_msg("Key file not found.")
+            return
+        
+        try:
+            child_key = _read_key_file(key_path)
+        except ValueError as e:
+            error_msg(str(e))
+            return
+    else:
+        error_msg("Invalid choice.")
+        return
+    
+    # Generate X25519 keypair
+    checksum = key_derive.compute_checksum(child_key[:32])
+    print(f"\n  [OK] X25519 keypair generated")
+    print(f"  Checksum: {checksum}")
+    
+    # Export options
+    if _ask("\n  Save keypair to files?", default_val="y"):
+        priv_path = f"x25519_priv_{checksum[:8]}.pem"
+        pub_path = f"x25519_pub_{checksum[:8]}.pub"
+        
+        counter = 1
+        while os.path.exists(priv_path):
+            priv_path = f"x25519_priv_{checksum[:8]}_{counter}.pem"
+            pub_path = f"x25519_pub_{checksum[:8]}_{counter}.pub"
+            counter += 1
+        
+        meta = {"created_at": datetime.now(timezone.utc).isoformat()}
+        key_export.write_x25519_keypair(child_key[:32], priv_path, pub_path, meta)
+        print(f"  Private key: {os.path.abspath(priv_path)}")
+        print(f"  Public key:  {os.path.abspath(pub_path)}")
+
+
+def _interactive_sign_message() -> None:
+    """Interactive message signing."""
+    print("\n" + "="*60)
+    print("  SIGN MESSAGE")
+    print("="*60)
+    
+    print("\n  Enter path to Ed25519 private key file:")
+    try:
+        key_path = input("  Key file path: ").strip().strip('"').strip("'")
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return
+    
+    if not key_path or not os.path.isfile(key_path):
+        error_msg("Key file not found.")
+        return
+    
+    try:
+        key_bytes = _read_key_file(key_path)
+    except ValueError as e:
+        error_msg(str(e))
+        return
+    
+    from entropygarden import ed25519
+    
+    try:
+        sk = ed25519.generate_signing_key(key_bytes[:32])
+    except Exception as e:
+        error_msg(f"Invalid key: {e}")
+        return
+    
+    print("\n  Enter message to sign (or path to file):")
+    try:
+        msg_input = input("  Message: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return
+    
+    # Try to read as file first
+    message = None
+    if os.path.isfile(msg_input):
+        try:
+            message = Path(msg_input).read_bytes()
+            log(f"Read message from file: {msg_input}")
+        except Exception:
+            message = msg_input.encode()
+    else:
+        message = msg_input.encode()
+    
+    try:
+        sig = sk.sign(message)
+        sig_b64 = base64.b64encode(sig).decode()
+        
+        print(f"\n  [OK] Message signed")
+        print(f"  Signature (base64):")
+        print(f"  {sig_b64}")
+        
+        # Ask to save
+        if _ask("\n  Save signature to file?", default_val="y"):
+            output_path = "signature.sig"
+            counter = 1
+            while os.path.exists(output_path):
+                output_path = f"signature_{counter}.sig"
+                counter += 1
+            
+            Path(output_path).write_text(sig_b64)
+            print(f"  Saved to: {os.path.abspath(output_path)}")
+    except Exception as e:
+        error_msg(f"Signing failed: {e}")
+
+
+def _interactive_verify_signature() -> None:
+    """Interactive signature verification."""
+    print("\n" + "="*60)
+    print("  VERIFY SIGNATURE")
+    print("="*60)
+    
+    print("\n  Enter path to Ed25519 public key file:")
+    try:
+        key_path = input("  Key file path: ").strip().strip('"').strip("'")
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return
+    
+    if not key_path or not os.path.isfile(key_path):
+        error_msg("Key file not found.")
+        return
+    
+    try:
+        pub_key = _read_key_file(key_path)
+    except ValueError as e:
+        error_msg(str(e))
+        return
+    
+    from entropygarden import ed25519
+    
+    try:
+        vk = ed25519.Ed25519VerifyingKey(pub_key[:32])
+    except Exception as e:
+        error_msg(f"Invalid public key: {e}")
+        return
+    
+    print("\n  Enter message (or path to file):")
+    try:
+        msg_input = input("  Message: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return
+    
+    message = None
+    if os.path.isfile(msg_input):
+        try:
+            message = Path(msg_input).read_bytes()
+            log(f"Read message from file: {msg_input}")
+        except Exception:
+            message = msg_input.encode()
+    else:
+        message = msg_input.encode()
+    
+    print("\n  Enter signature (base64):")
+    try:
+        sig_b64 = input("  Signature: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return
+    
+    try:
+        sig = base64.b64decode(sig_b64)
+    except Exception:
+        error_msg("Invalid base64 signature.")
+        return
+    
+    try:
+        result = vk.verify(sig, message)
+        if result:
+            log("Signature VERIFIED - Message is authentic", color="green")
+        else:
+            error_msg("Verification FAILED - Signature is invalid")
+    except Exception as e:
+        error_msg(f"Verification error: {e}")
+
+
+def _interactive_key_rotation() -> None:
+    """Interactive key rotation."""
+    print("\n" + "="*60)
+    print("  KEY ROTATION")
+    print("="*60)
+    
+    print("\n  Enter path to parent key file:")
+    try:
+        key_path = input("  Key file path: ").strip().strip('"').strip("'")
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return
+    
+    if not key_path or not os.path.isfile(key_path):
+        error_msg("Key file not found.")
+        return
+    
+    try:
+        parent_key = Path(key_path).read_bytes()
+    except Exception as e:
+        error_msg(f"Failed to read key: {e}")
+        return
+    
+    print("\n  Enter rotation reason (e.g., 'scheduled rotation', 'compromised')")
+    try:
+        reason = input("  Reason: ").strip() or "manual rotation"
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return
+    
+    try:
+        result = key_rotation.rotate_key(parent_key, reason)
+        new_checksum = result["checksum"]
+        
+        print(f"\n  [OK] Key rotated successfully")
+        print(f"  New checksum: {new_checksum}")
+        print(f"  Reason: {reason}")
+        
+        # Ask to save
+        if _ask("\n  Save rotated key to file?", default_val="y"):
+            output_path = f"rotated_key_{new_checksum[:8]}.key"
+            counter = 1
+            while os.path.exists(output_path):
+                output_path = f"rotated_key_{new_checksum[:8]}_{counter}.key"
+                counter += 1
+            
+            Path(output_path).write_bytes(result["key"])
+            print(f"  Saved to: {os.path.abspath(output_path)}")
+    except Exception as e:
+        error_msg(f"Key rotation failed: {e}")
+
+
+def _interactive_hmac_challenge() -> None:
+    """Interactive HMAC challenge-response verification."""
+    print("\n" + "="*60)
+    print("  HMAC CHALLENGE/RESPONSE")
+    print("="*60)
+    
+    print("\n  Options:")
+    print("    [1] Generate challenge (prove key ownership)")
+    print("    [2] Verify response")
+    print("    [0] Cancel")
+    
+    try:
+        choice = input("\n  Select option (0-2): ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return
+    
+    if choice == "0":
+        return
+    
+    print("\n  Enter path to key file:")
+    try:
+        key_path = input("  Key file path: ").strip().strip('"').strip("'")
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return
+    
+    if not key_path or not os.path.isfile(key_path):
+        error_msg("Key file not found.")
+        return
+    
+    try:
+        key = _read_key_file(key_path)
+    except ValueError as e:
+        error_msg(str(e))
+        return
+    
+    if choice == "1":
+        # Generate challenge
+        try:
+            chal = verify.generate_challenge(key)
+            
+            print(f"\n  [OK] Challenge generated")
+            print(f"\n  Challenge (JSON):")
+            print(json.dumps(chal, indent=2))
+            
+            # Ask to save
+            if _ask("\n  Save challenge to file?", default_val="y"):
+                output_path = "challenge.json"
+                counter = 1
+                while os.path.exists(output_path):
+                    output_path = f"challenge_{counter}.json"
+                    counter += 1
+                
+                Path(output_path).write_text(json.dumps(chal, indent=2))
+                print(f"  Saved to: {os.path.abspath(output_path)}")
+        except Exception as e:
+            error_msg(f"Challenge generation failed: {e}")
+    
+    elif choice == "2":
+        # Verify response
+        print("\n  Enter path to challenge JSON file:")
+        try:
+            chal_path = input("  Challenge file: ").strip().strip('"').strip("'")
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return
+        
+        if not chal_path or not os.path.isfile(chal_path):
+            error_msg("Challenge file not found.")
+            return
+        
+        try:
+            chal = json.loads(Path(chal_path).read_text())
+        except Exception as e:
+            error_msg(f"Failed to read challenge: {e}")
+            return
+        
+        print("\n  Enter response (base64):")
+        try:
+            response = input("  Response: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return
+        
+        try:
+            ok = verify.verify_response(key, chal, response)
+            if ok:
+                log("Response VERIFIED - Key ownership confirmed", color="green")
+            else:
+                error_msg("Verification FAILED - Invalid response")
+        except Exception as e:
+            error_msg(f"Verification error: {e}")
+
+
+def _interactive_key_info() -> None:
+    """Interactive key information display."""
+    print("\n" + "="*60)
+    print("  KEY INFORMATION")
+    print("="*60)
+    
+    print("\n  Enter path to key file:")
+    try:
+        key_path = input("  Key file path: ").strip().strip('"').strip("'")
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return
+    
+    if not key_path or not os.path.isfile(key_path):
+        error_msg("Key file not found.")
+        return
+    
+    try:
+        text = Path(key_path).read_text(encoding="utf-8")
+        key = _read_key_file(key_path)
+    except Exception as e:
+        error_msg(f"Failed to read key: {e}")
+        return
+    
+    meta = _parse_key_metadata(text)
+    meta["key_length"] = len(key)
+    meta["checksum"] = key_derive.compute_checksum(key)
+    meta["fingerprint"] = key_derive.key_fingerprint(key)
+    
+    print("\n  Key Information:")
+    print(json.dumps(meta, indent=2, default=str))
+    
+    if _ask("\n  Show hex dump?", default_val="n"):
+        print()
+        for line in render.hex_dump(key):
+            print(line)
+
+
+def _interactive_main_menu() -> None:
+    """Main interactive menu with all features."""
+    set_quiet(False)
+    
+    while True:
+        print("\n" + "="*60)
+        print("  ENTROPY GARDEN - MAIN MENU")
+        print("="*60)
+        print("\n  [1] Derive keys from image (Grow)")
+        print("  [2] Generate Ed25519 keypair")
+        print("  [3] Generate X25519 keypair")
+        print("  [4] Sign a message")
+        print("  [5] Verify a signature")
+        print("  [6] Rotate a key")
+        print("  [7] HMAC Challenge/Response")
+        print("  [8] View key information")
+        print("  [9] Export key to different format")
+        print("  [0] Exit")
+        print()
+        
+        try:
+            choice = input("  Enter choice (0-9): ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            break
+        
+        if choice == "0":
+            print("\n  Goodbye!\n")
+            break
+        elif choice == "1":
+            cfg = config.load()
+            _interactive_grow(cfg)
+        elif choice == "2":
+            _interactive_ed25519_keygen()
+        elif choice == "3":
+            _interactive_x25519_keygen()
+        elif choice == "4":
+            _interactive_sign_message()
+        elif choice == "5":
+            _interactive_verify_signature()
+        elif choice == "6":
+            _interactive_key_rotation()
+        elif choice == "7":
+            _interactive_hmac_challenge()
+        elif choice == "8":
+            _interactive_key_info()
+        elif choice == "9":
+            print("\n  Enter path to key file:")
+            try:
+                key_path = input("  Key file path: ").strip().strip('"').strip("'")
+            except (EOFError, KeyboardInterrupt):
+                print()
+                continue
+            
+            if key_path and os.path.isfile(key_path):
+                _show_export_menu(key_path, key_derive.compute_checksum(_read_key_file(key_path)))
+        else:
+            error_msg("Invalid choice. Please select 0-9.")
+
+
 def _interactive_grow(cfg: dict) -> None:
     """Interactive flow where we want to process images in a loop until the user stops or quits the program"""
     set_quiet(False)
@@ -587,9 +1152,8 @@ def main(argv=None) -> None:
         argv = sys.argv[1:]
 
     if not argv:
-        cfg = config.load()
         try:
-            _interactive_grow(cfg)
+            _interactive_main_menu()
         except KeyboardInterrupt:
             print()
             return
