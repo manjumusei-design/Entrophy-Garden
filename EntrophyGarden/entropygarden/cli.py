@@ -374,7 +374,7 @@ def _cmd_grow(args: argparse.Namespace) -> None:
                 pub = key_derive.hkdf_expand(child_key, b"public", 32)
                 key_export.write_key(pub, args.output_public, "json", meta)
         elif key_type == "ed25519":
-            from EntrophyGarden.entropygarden import ed25519
+            from . import ed25519
             sk = ed25519.generate_signing_key(child_key[:32])
             priv_out = args.output_private or "priv_ed25519.key"
             pub_out = args.output_public or "pub_ed25519.pub"

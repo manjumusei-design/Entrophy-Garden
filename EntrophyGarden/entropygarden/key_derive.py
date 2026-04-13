@@ -6,7 +6,7 @@ from typing import List, Tuple
 
 
 def derive_master(seed: bytes) -> bytes:
-    """To derive a 32 byte master key from an entrophy seed from the image"""
+    """To derive a 32 byte master key from an entropy seed from the image"""
     return hashlib.sha3_256(seed + b"entropygarden:master").digest()
 
 

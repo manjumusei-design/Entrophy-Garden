@@ -100,7 +100,7 @@ def generate_signing_key(seed: bytes = None) -> Ed25519SigningKey:
 
 def _pure_python_public_key(seed:bytes) -> bytes:
     """Derive Ed25519 public key from seed using pure python curve 25519 implementation"""
-    from EntrophyGarden.entropygarden import curve25519
+    from . import curve25519
     h = hashlib.sha512(seed).digest()
     scalar = curve25519.clamp_scalar(h[:32])
     pk_point = curve25519.scalar_mult(scalar,curve25519.B)
@@ -108,8 +108,8 @@ def _pure_python_public_key(seed:bytes) -> bytes:
     
 
 def _pure_python_sign(seed: bytes, message: bytes) -> bytes:
-    """Sign a message using the homebrewerd python ED25519"""
-    from EntrophyGarden.entropygarden import curve25519
+    """Sign a message using the homebrewed python ED25519"""
+    from . import curve25519
     h = hashlib.sha512(seed).digest()
     scalar = curve25519.clamp_scalar(h[:32])
     prefix = h[32:]
@@ -127,7 +127,7 @@ def _pure_python_sign(seed: bytes, message: bytes) -> bytes:
 
 def _pure_python_verify(public_key: bytes, signature: bytes, message: bytes) -> bool:
     """Verify a ed25519 signature using the homebrewed python implementation"""
-    from EntrophyGarden.entropygarden import curve25519
+    from . import curve25519
     try:
         A = curve25519.bytes_to_point(public_key)
     except ValueError:

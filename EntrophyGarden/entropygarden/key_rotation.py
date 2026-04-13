@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 from typing import Dict, List, Tuple
 
-from EntrophyGarden.entropygarden import key_derive
+from . import key_derive
 
 
 def parse_path(path: str) -> List[Tuple[int, bool]]:
@@ -37,7 +37,7 @@ def rotate_key(old_key: bytes, reason: str) -> Dict[str, object]:
     """Derive a new key via hkdf expand and to return the rotation metadata"""
     new_key = key_derive.hkdf_expand(old_key, b"entropygarden:rotate", 32)
     now = datetime.now(timezone.utc).isoformat()
-    from EntrophyGarden.entropygarden.cli_output import log
+    from .cli_output import log
     log(f"Key rotated: {reason}", level="warn", color="yellow")
     return {
         "key": new_key,

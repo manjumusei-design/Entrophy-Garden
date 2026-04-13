@@ -40,7 +40,7 @@ def compute_shared_secret(private_key: bytes, peer_public: bytes) -> bytes:
 
 def _pure_python_public_key(private_key: bytes) -> bytes:
     """Generate public key using pure-Python Montgomery ladder."""
-    from EntrophyGarden.entropygarden import curve25519
+    from . import curve25519
     scalar = curve25519.clamp_scalar(private_key)
     u = _montgomery_ladder(scalar, 9)
     return curve25519.encode_int_le(u)
@@ -48,7 +48,7 @@ def _pure_python_public_key(private_key: bytes) -> bytes:
 
 def _pure_python_shared_secret(private_key: bytes, peer_public: bytes) -> bytes:
     """Compute shared secret using the montgomery ladder."""
-    from EntrophyGarden.entropygarden import curve25519
+    from . import curve25519
     scalar = curve25519.clamp_scalar(private_key)
     u = int.from_bytes(peer_public, "little")
     result = _montgomery_ladder(scalar, u)
@@ -102,4 +102,4 @@ def _montgomery_ladder(scalar: int, u: int) -> int:
 
 
 # Import curve25519 at the bottom to avoid circular imports during loading and initialization 
-from EntrophyGarden.entropygarden import curve25519
+from . import curve25519

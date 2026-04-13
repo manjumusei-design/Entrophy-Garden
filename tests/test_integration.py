@@ -12,7 +12,7 @@ from entropygarden import key_derive, key_export, image_parser, verify
 
 def _make_sample_ppm(path: str) -> None:
     """Write a minimal p6 4x4 255 ppm file"""
-    pixels = bytes([(i * 7) % 256 for i in bange (48)])
+    pixels = bytes([(i * 7) % 256 for i in range(48)])
     with open(path, "wb") as f:
         f.write(b"P6\n4 4\n255\n")
         f.write(pixels)
